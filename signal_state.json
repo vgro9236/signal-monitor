@@ -1,9 +1,9 @@
 {
   "XAUUSD": {
-    "bias": "SELL",
-    "confidence": 8,
-    "ts": "2026-05-12T20:29:41.668717+00:00",
+    "bias": "BEARISH",
+    "confidence": 7,
+    "ts": "2026-05-12T22:12:00.559341+00:00",
     "price": "4678",
-    "last_tier": "FLIP"
+    "last_tier": "NONE"
   }
 }
