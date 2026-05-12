@@ -432,6 +432,14 @@ def send_telegram(text, token, chat_id):
         return False
 
 
+def _smart_truncate(text, max_len):
+    """Truncate at a word boundary so we don't cut mid-word."""
+    if not text or len(text) <= max_len:
+        return text
+    cutoff = text[:max_len].rsplit(" ", 1)[0]
+    return cutoff + "…"
+
+
 def format_message(screening, confirmation, tier):
     """Build the Telegram message. confirmation may be None for screening-only paths."""
     primary = confirmation if confirmation else screening
@@ -449,12 +457,12 @@ def format_message(screening, confirmation, tier):
 
     msg += "*Factors:*\n"
     for f in primary.get("factors", [])[:8]:
-        summary = f.get("summary", "")[:100]
+        summary = _smart_truncate(f.get("summary", ""), 220)
         msg += f"{sig_emoji.get(f['signal'], '⚪')} *{f['name']}:* {summary}\n"
 
     levels = primary.get("key_levels", {})
     msg += f"\n📍 S `{levels.get('support', '?')}` · R `{levels.get('resistance', '?')}`\n"
-    msg += f"\n⚠️ _{primary.get('risk_warning', '')[:200]}_"
+    msg += f"\n⚠️ _{_smart_truncate(primary.get('risk_warning', ''), 350)}_"
     return msg[:4000]
 
 
