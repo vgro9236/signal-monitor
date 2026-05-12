@@ -1,0 +1,50 @@
+name: Signal Monitor
+
+on:
+  schedule:
+    # Every hour on the hour. Costs ~$34/mo per symbol.
+    # Suits the "wait for the dust to settle" approach to news-driven trades.
+    # Adjust as needed:
+    #   '0 * * * *'     = every hour (default) — ~$34/mo
+    #   '*/30 * * * *'  = every 30 min       — ~$68/mo
+    #   '*/20 * * * *'  = every 20 min       — ~$101/mo
+    #   '0 */2 * * *'   = every 2 hours      — ~$17/mo
+    - cron: '0 * * * *'
+  workflow_dispatch:  # also lets you trigger it manually from the Actions tab
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to commit state file back
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run signal monitor
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SYMBOLS: ${{ vars.SYMBOLS || 'XAUUSD' }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'claude-haiku-4-5-20251001' }}
+          MIN_CONFIDENCE: ${{ vars.MIN_CONFIDENCE || '7' }}
+          RUN_ONCE: '1'
+        run: python signal_monitor.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "signal-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add signal_state.json signal_logs/ 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "state update [skip ci]"
+          git push || true
