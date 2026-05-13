@@ -1,9 +1,9 @@
 {
   "XAUUSD": {
-    "bias": "BEARISH",
-    "confidence": 7,
-    "ts": "2026-05-13T15:43:30.030667+00:00",
-    "price": "~$3180-3200",
+    "bias": "NEUTRAL",
+    "confidence": 5,
+    "ts": "2026-05-13T18:01:16.387372+00:00",
+    "price": "~$2,860-2,900",
     "last_tier": "NONE"
   }
 }
