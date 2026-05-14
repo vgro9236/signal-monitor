@@ -271,7 +271,7 @@ def fetch_news(categories, hours_back=24, per_feed_cap=25):
 # PROMPT + ANALYSIS
 # ────────────────────────────────────────────────────────────────────
 
-def build_prompt(symbol, news_items, role="screening"):
+def build_prompt(symbol, news_items, role="screening", price_context=None, maturity_context=None):
     profile = ASSET_PROFILES[symbol]
     factors_list = "\n".join(f"  {i+1}. {f}" for i, f in enumerate(profile["factors"]))
     if news_items:
@@ -289,9 +289,15 @@ def build_prompt(symbol, news_items, role="screening"):
              "and whether the news genuinely supports the bias or just looks like it does on surface."
     )
 
+    context_block = ""
+    if price_context:
+        context_block += f"\n\nPRICE ACTION CONTEXT:\n{price_context}\n"
+    if maturity_context:
+        context_block += f"\nBIAS HISTORY (your previous reads):\n{maturity_context}\n"
+
     return f"""You are a senior macro analyst monitoring {profile['display_name']} ({symbol}).
 {role_note}
-
+{context_block}
 Recent news from major free public sources (last ~24h):
 
 NEWS:
@@ -331,20 +337,147 @@ Rules:
    • Hawkish Fed surprise → BEARISH gold/equities, BULLISH dollar
    • Dovish Fed surprise → BULLISH gold/equities, BEARISH dollar
 - For XAUUSD specifically: real yields and DXY are the two single biggest factors. Weight them accordingly.
+- PHASE AWARENESS — if PRICE ACTION CONTEXT shows the move in your bias direction has ALREADY happened (>1% in 4h or >2% in 24h), this is a PHASE 2/3 scenario, not PHASE 1:
+   • Phase 1 (news fresh, move hasn't started) → full conviction OK
+   • Phase 2 (move in progress, 30-180 min after catalyst) → REDUCE confidence by 1-2 points, note "move underway, wait for retest"
+   • Phase 3 (move extended, >3h or >1% in direction) → REDUCE confidence further, note "move extended, late to chase, look for pullback entry"
+- If BIAS HISTORY shows this is a fresh reaction (different from prior 2-3 reads), mark this clearly — first-cycle reactions are less reliable than sustained reads.
 - Always populate "catalysts_ahead" with upcoming releases/events in the next 24-72h that could flip the bias.
 - If news is sparse or mixed, lower confidence to 4-6.
-- Confidence 8+ requires CLEAR factor confluence (5+ aligned in same direction) AND no major contradicting forces.
+- Confidence 8+ requires CLEAR factor confluence (5+ aligned in same direction) AND no major contradicting forces AND move not extended.
 - If a major upcoming catalyst is hours away (e.g. FOMC tomorrow), cap confidence at 6 — markets often chop into events.
+
+Additionally include in your JSON:
+  "phase": "PHASE_1" (fresh, move not started) | "PHASE_2" (move in progress) | "PHASE_3" (move extended, late) | "UNKNOWN"
+  "entry_guidance": "<1 sentence on where/when to consider entry — e.g. 'short on retest of $X resistance' or 'move extended, wait for pullback to $Y before considering'>"
 
 JSON only.
 """
 
 
-def analyze(symbol, client, model, news, role="screening"):
+def fetch_price_action(symbol):
+    """
+    Fetch recent price action context for the symbol via free public API.
+    Returns a short string like '$4,650 · -2.1% last 24h · -0.8% last 4h'
+    Falls back to None if API unavailable.
+    """
+    # Yahoo Finance proxy symbols for our assets
+    yahoo_symbols = {
+        "XAUUSD": "GC=F",      # Gold futures
+        "BTCUSD": "BTC-USD",
+        "SPY": "SPY",
+        "US30": "^DJI",        # Dow Jones index
+        "NAS100": "^NDX",      # Nasdaq 100
+    }
+    yf_sym = yahoo_symbols.get(symbol)
+    if not yf_sym:
+        return None
+
+    try:
+        # Use 1-day range, 1-hour interval — gives ~24 hourly bars
+        url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_sym}"
+               f"?range=1d&interval=1h")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+
+        result = data["chart"]["result"][0]
+        closes = [c for c in result["indicators"]["quote"][0]["close"] if c is not None]
+        if len(closes) < 5:
+            return None
+
+        current = closes[-1]
+        # 4h back ≈ 4 hourly bars back; 24h ≈ start of dataset
+        price_4h_ago = closes[-5] if len(closes) >= 5 else closes[0]
+        price_24h_ago = closes[0]
+
+        pct_4h = ((current - price_4h_ago) / price_4h_ago) * 100
+        pct_24h = ((current - price_24h_ago) / price_24h_ago) * 100
+
+        # Format with appropriate decimals depending on instrument
+        if symbol in ("BTCUSD",):
+            price_str = f"${current:,.0f}"
+        elif symbol in ("XAUUSD",):
+            price_str = f"${current:,.2f}"
+        else:
+            price_str = f"{current:,.2f}"
+
+        return (f"Current: {price_str}  ·  4h change: {pct_4h:+.2f}%  ·  "
+                f"24h change: {pct_24h:+.2f}%")
+    except Exception as e:
+        print(f"  ⚠ price fetch failed for {symbol}: {e}")
+        return None
+
+
+def read_recent_history(symbol, n=5):
+    """Read the last N analyses from today's log file to build maturity context."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    log_file = LOG_DIR / f"{symbol}_{today}.jsonl"
+    if not log_file.exists():
+        return None
+
+    try:
+        with open(log_file) as f:
+            lines = f.readlines()[-n:]
+        if not lines:
+            return None
+        entries = [json.loads(line) for line in lines]
+        summary_lines = []
+        for entry in entries:
+            ts = entry.get("timestamp", "")[:16].replace("T", " ")
+            scr = entry.get("screening", {})
+            conf_entry = entry.get("confirmation")
+            if conf_entry:
+                summary_lines.append(
+                    f"  {ts}  Haiku: {scr.get('overall_bias')}{scr.get('confidence')}/10 → "
+                    f"Sonnet: {conf_entry.get('overall_bias')}{conf_entry.get('confidence')}/10"
+                )
+            else:
+                summary_lines.append(
+                    f"  {ts}  Haiku: {scr.get('overall_bias')}{scr.get('confidence')}/10 (no confirmation triggered)"
+                )
+        return "\n".join(summary_lines)
+    except Exception as e:
+        print(f"  ⚠ history read failed: {e}")
+        return None
+
+
+def compute_maturity(symbol, current_bias, n=3):
+    """
+    How many of the last N cycles had the same bias as current?
+    Returns (matched_count, total_count, label).
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    log_file = LOG_DIR / f"{symbol}_{today}.jsonl"
+    if not log_file.exists():
+        return 0, 0, "FRESH"
+
+    try:
+        with open(log_file) as f:
+            lines = f.readlines()[-n:]
+        if not lines:
+            return 0, 0, "FRESH"
+        entries = [json.loads(line) for line in lines]
+        matched = 0
+        for entry in entries:
+            primary = entry.get("confirmation") or entry.get("screening")
+            if primary and primary.get("overall_bias") == current_bias:
+                matched += 1
+        total = len(entries)
+        if matched == total and total >= 2:
+            return matched, total, "MATURE"
+        if matched >= 2:
+            return matched, total, "BUILDING"
+        return matched, total, "FRESH"
+    except Exception:
+        return 0, 0, "FRESH"
+
+
+def analyze(symbol, client, model, news, role="screening", price_context=None, maturity_context=None):
     response = client.messages.create(
         model=model,
-        max_tokens=3000,
-        messages=[{"role": "user", "content": build_prompt(symbol, news, role)}],
+        max_tokens=3500,
+        messages=[{"role": "user", "content": build_prompt(symbol, news, role, price_context, maturity_context)}],
     )
     text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text").strip()
     cleaned = text.replace("```json", "").replace("```", "").strip()
@@ -362,48 +495,63 @@ def analyze(symbol, client, model, news, role="screening"):
 # TWO-STAGE DECISION LOGIC
 # ────────────────────────────────────────────────────────────────────
 
-def decide_alert(screening, confirmation, prev_state):
+def decide_alert(screening, confirmation, prev_state, maturity_label, maturity_count):
     """
     Returns (should_alert: bool, alert_tier: str, reason: str)
 
-    alert_tier ∈ {"HIGH", "MODERATE", "FLIP", "NONE"}
+    alert_tier ∈ {"HIGH", "MODERATE", "FLIP", "WATCH", "NONE"}
+
+    NEW LOGIC:
+    - HIGH requires both models agreeing on direction at ≥7 AND maturity (2+ matching cycles)
+    - First-cycle high-confidence reads become WATCH alerts (informational, not actionable)
+    - FLIP still fires immediately on bias change (these are inherently fresh)
     """
     # Skip if Haiku didn't flag anything in the first place
     if confirmation is None:
-        # Haiku-only path: only alert on bias flips at moderate+ confidence
         if not prev_state:
             return False, "NONE", "first run, screening only, below threshold"
         if prev_state.get("bias") != screening["overall_bias"] and screening["confidence"] >= 5:
             return True, "FLIP", f"bias flip {prev_state.get('bias')} → {screening['overall_bias']} (screening only)"
         return False, "NONE", "no alert from screening"
 
-    # Both models ran — apply two-stage logic
     s_bias, s_conf = screening["overall_bias"], screening["confidence"]
     c_bias, c_conf = confirmation["overall_bias"], confirmation["confidence"]
 
-    # Direction disagreement → silent. The models can't agree, don't trade.
+    # Direction disagreement → silent
     if s_bias != c_bias:
         return False, "NONE", f"DISAGREEMENT: Haiku={s_bias} vs Sonnet={c_bias} — silent log"
 
-    # Both agree on direction, both high conviction → top tier
-    if c_conf >= 7:
-        # If this is also a flip from previous state, flag it as such
-        if prev_state and prev_state.get("bias") != c_bias:
+    # Bias flip from previous state → always alert (these are fresh by nature)
+    if prev_state and prev_state.get("bias") != c_bias:
+        if c_conf >= 7:
             return True, "FLIP", f"FLIP + CONFIRMED: {prev_state.get('bias')} → {c_bias}, both models conf ≥7"
-        # Or if confidence has stepped up meaningfully
-        if prev_state and prev_state.get("confidence", 0) < 7:
-            return True, "HIGH", f"confidence climbed to confirmed high conviction"
-        if not prev_state:
-            return True, "HIGH", "first signal, confirmed high conviction"
-        return False, "NONE", "already alerted at this level"
+        if c_conf >= 5:
+            return True, "FLIP", f"flip {prev_state.get('bias')} → {c_bias} at moderate conviction {c_conf}/10"
 
-    # Sonnet downgrades conviction to moderate (5-6) — softer alert
+    # Both agree at high conviction (≥7)
+    if c_conf >= 7:
+        # Apply maturity gate — needs 2+ matching cycles before becoming HIGH
+        if maturity_label == "MATURE":
+            # Only re-alert if confidence stepped up or we haven't alerted yet
+            if not prev_state or prev_state.get("confidence", 0) < 7 or prev_state.get("last_tier") not in ("HIGH", "FLIP"):
+                return True, "HIGH", f"MATURE high conviction ({maturity_count} matching cycles)"
+            return False, "NONE", "HIGH already established, no change"
+        elif maturity_label == "BUILDING":
+            # Second cycle of agreement — promote from WATCH to MODERATE
+            if not prev_state or prev_state.get("last_tier") != "MODERATE":
+                return True, "MODERATE", f"building conviction ({maturity_count} matching cycles, not yet mature)"
+            return False, "NONE", "MODERATE already sent at this level"
+        else:  # FRESH — first cycle at high conviction
+            if not prev_state or prev_state.get("last_tier") != "WATCH":
+                return True, "WATCH", f"FRESH high-conf read ({c_conf}/10) — informational only, needs confirmation"
+            return False, "NONE", "WATCH already sent"
+
+    # Moderate conviction (5-6) — softer alert
     if c_conf >= 5:
         if not prev_state or prev_state.get("bias") != c_bias:
-            return True, "MODERATE", f"watch-level: Haiku flagged {s_conf}/10, Sonnet sees {c_conf}/10"
+            return True, "MODERATE", f"watch-level: Haiku {s_conf}/10, Sonnet {c_conf}/10"
         return False, "NONE", "moderate already known"
 
-    # Sonnet downgrades below 5 → quiet
     return False, "NONE", f"Sonnet downgraded to {c_conf}/10 — no alert"
 
 
@@ -412,9 +560,10 @@ def decide_alert(screening, confirmation, prev_state):
 # ────────────────────────────────────────────────────────────────────
 
 TIER_HEADERS = {
-    "HIGH": "🎯 *HIGH CONVICTION*",
+    "HIGH": "🎯 *HIGH CONVICTION — MATURE*",
     "FLIP": "⚡ *BIAS FLIP — CONFIRMED*",
-    "MODERATE": "👀 *WATCH (moderate)*",
+    "MODERATE": "👀 *BUILDING (watch)*",
+    "WATCH": "📡 *FRESH READ (informational only)*",
 }
 
 
@@ -440,8 +589,8 @@ def _smart_truncate(text, max_len):
     return cutoff + "…"
 
 
-def format_message(screening, confirmation, tier):
-    """Build the Telegram message. confirmation may be None for screening-only paths."""
+def format_message(screening, confirmation, tier, price_context=None, maturity_label=None, maturity_count=None):
+    """Build the Telegram message with new phase + maturity info."""
     primary = confirmation if confirmation else screening
     bias_emoji = {"BUY": "🟢", "SELL": "🔴", "NEUTRAL": "🟡"}
     sig_emoji = {"BULLISH": "🟢", "BEARISH": "🔴", "NEUTRAL": "⚪"}
@@ -452,8 +601,36 @@ def format_message(screening, confirmation, tier):
 
     if confirmation:
         msg += f"  _(Haiku {screening['confidence']}/10 → Sonnet {confirmation['confidence']}/10)_"
-    msg += f"\n_{primary.get('current_price', '?')}_\n\n"
-    msg += f"{primary.get('narrative', '')}\n\n"
+    msg += "\n"
+
+    # Phase + maturity tags
+    phase = primary.get("phase", "UNKNOWN")
+    phase_tags = {
+        "PHASE_1": "🟢 Phase 1 (fresh, move not started)",
+        "PHASE_2": "🟡 Phase 2 (move underway — wait for retest)",
+        "PHASE_3": "🔴 Phase 3 (move extended — late to chase)",
+    }
+    if phase in phase_tags:
+        msg += f"_{phase_tags[phase]}_\n"
+
+    if maturity_label and maturity_count is not None:
+        maturity_tags = {
+            "MATURE": f"✅ Maturity: {maturity_count}/3 cycles confirmed",
+            "BUILDING": f"⏳ Maturity: {maturity_count}/3 cycles (building)",
+            "FRESH": f"⚠️ Maturity: {maturity_count}/3 cycles (fresh — caution)",
+        }
+        if maturity_label in maturity_tags:
+            msg += f"_{maturity_tags[maturity_label]}_\n"
+
+    if price_context:
+        msg += f"_{price_context}_\n"
+
+    msg += f"\n{primary.get('narrative', '')}\n\n"
+
+    # Entry guidance — the key actionable line
+    entry_guidance = primary.get("entry_guidance", "")
+    if entry_guidance:
+        msg += f"📌 *Entry guidance:* _{entry_guidance}_\n\n"
 
     msg += "*Factors:*\n"
     for f in primary.get("factors", [])[:8]:
@@ -463,6 +640,15 @@ def format_message(screening, confirmation, tier):
     levels = primary.get("key_levels", {})
     msg += f"\n📍 S `{levels.get('support', '?')}` · R `{levels.get('resistance', '?')}`\n"
     msg += f"\n⚠️ _{_smart_truncate(primary.get('risk_warning', ''), 350)}_"
+
+    # Final tier-specific footer
+    if tier == "WATCH":
+        msg += "\n\n_⏸ This is a FRESH read. Wait for next cycle to confirm before acting._"
+    elif tier == "MODERATE":
+        msg += "\n\n_⏳ Building conviction. Look for setup but don't force entry._"
+    elif tier == "HIGH":
+        msg += "\n\n_✅ Mature, multi-cycle confirmed. Highest-quality alert tier._"
+
     return msg[:4000]
 
 
@@ -529,24 +715,45 @@ def run_once():
             news = fetch_news(feed_cats)
             print(f"  → {len(news)} news items")
 
+            # NEW: fetch price action context (free via Yahoo Finance)
+            price_context = fetch_price_action(symbol)
+            if price_context:
+                print(f"  → Price: {price_context}")
+
+            # NEW: read recent history for bias maturity assessment
+            history_context = read_recent_history(symbol, n=3)
+
             # STAGE 1 — Haiku
-            screening = analyze(symbol, client, SCREENING_MODEL, news, "screening")
+            screening = analyze(
+                symbol, client, SCREENING_MODEL, news, "screening",
+                price_context=price_context, maturity_context=history_context,
+            )
             s_bias, s_conf = screening["overall_bias"], screening["confidence"]
             colors = {"BUY": "\033[92m", "SELL": "\033[91m", "NEUTRAL": "\033[93m"}
-            print(f"  [Haiku]   {colors.get(s_bias, '')}{s_bias}\033[0m {s_conf}/10  @ {screening.get('current_price', '?')}")
+            phase_str = screening.get("phase", "UNKNOWN")
+            print(f"  [Haiku]   {colors.get(s_bias, '')}{s_bias}\033[0m {s_conf}/10  @ {screening.get('current_price', '?')}  ({phase_str})")
+
+            # Compute maturity based on history + this bias
+            mat_count, mat_total, mat_label = compute_maturity(symbol, s_bias, n=3)
+            print(f"  Maturity: {mat_label} ({mat_count}/{mat_total} matching cycles)")
 
             # STAGE 2 — Sonnet (only if Haiku tripped the threshold)
             confirmation = None
             if s_conf >= SCREENING_THRESHOLD:
                 print(f"  → Haiku flagged ≥{SCREENING_THRESHOLD}, calling Sonnet to confirm…")
-                confirmation = analyze(symbol, client, CONFIRMATION_MODEL, news, "confirmation")
+                confirmation = analyze(
+                    symbol, client, CONFIRMATION_MODEL, news, "confirmation",
+                    price_context=price_context, maturity_context=history_context,
+                )
                 c_bias, c_conf = confirmation["overall_bias"], confirmation["confidence"]
                 agree = "✓ agree" if c_bias == s_bias else "✗ DISAGREE"
                 print(f"  [Sonnet]  {colors.get(c_bias, '')}{c_bias}\033[0m {c_conf}/10  ({agree})")
+                # Recompute maturity using Sonnet's bias (the more trusted one)
+                mat_count, mat_total, mat_label = compute_maturity(symbol, c_bias, n=3)
 
             # Decide whether to alert
             prev = state.get(symbol)
-            alert, tier, reason = decide_alert(screening, confirmation, prev)
+            alert, tier, reason = decide_alert(screening, confirmation, prev, mat_label, mat_count)
             print(f"  Alert: {alert} [{tier}] — {reason}")
 
             # Log everything regardless
@@ -557,15 +764,16 @@ def run_once():
                 "alert": alert,
                 "tier": tier,
                 "reason": reason,
+                "maturity": {"label": mat_label, "count": mat_count, "total": mat_total},
+                "price_context": price_context,
             }, symbol)
 
             # Send Telegram only on alert
             if alert and tg_token and tg_chat:
-                msg = format_message(screening, confirmation, tier)
+                msg = format_message(screening, confirmation, tier, price_context, mat_label, mat_count)
                 sent = send_telegram(msg, tg_token, tg_chat)
                 print(f"  Telegram: {'✓ sent' if sent else '✗ failed'}")
 
-            # Update state — use confirmation if available, else screening
             primary = confirmation or screening
             state[symbol] = {
                 "bias": primary["overall_bias"],
