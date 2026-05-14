@@ -2,8 +2,22 @@
   "XAUUSD": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-05-14T11:51:21.257419+00:00",
-    "price": "$4,700",
+    "ts": "2026-05-14T13:58:05.536857+00:00",
+    "price": "~2,440",
     "last_tier": "NONE"
+  },
+  "US30": {
+    "bias": "NEUTRAL",
+    "confidence": 5,
+    "ts": "2026-05-14T13:59:17.234786+00:00",
+    "price": "50,000",
+    "last_tier": "NONE"
+  },
+  "NAS100": {
+    "bias": "BUY",
+    "confidence": 7,
+    "ts": "2026-05-14T14:00:22.345200+00:00",
+    "price": "~50,000+ (Dow reclaimed 50k per headlines)",
+    "last_tier": "HIGH"
   }
 }
