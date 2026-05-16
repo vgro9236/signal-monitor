@@ -1,23 +1,23 @@
 {
   "XAUUSD": {
-    "bias": "SELL",
-    "confidence": 5,
-    "ts": "2026-05-16T14:55:27.238122+00:00",
+    "bias": "NEUTRAL",
+    "confidence": 4,
+    "ts": "2026-05-16T15:57:33.937481+00:00",
     "price": "$4,561.90",
     "last_tier": "NONE"
   },
   "US30": {
     "bias": "NEUTRAL",
     "confidence": 4,
-    "ts": "2026-05-16T14:55:50.680129+00:00",
-    "price": "49,526.17",
+    "ts": "2026-05-16T15:57:56.270530+00:00",
+    "price": "49,526",
     "last_tier": "NONE"
   },
   "NAS100": {
-    "bias": "SELL",
-    "confidence": 5,
-    "ts": "2026-05-16T14:56:15.946383+00:00",
-    "price": "29,125.20",
+    "bias": "NEUTRAL",
+    "confidence": 4,
+    "ts": "2026-05-16T15:58:19.791631+00:00",
+    "price": "29,125",
     "last_tier": "NONE"
   }
 }
