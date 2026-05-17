@@ -1,23 +1,23 @@
 {
   "XAUUSD": {
-    "bias": "BULLISH",
+    "bias": "BUY",
     "confidence": 6,
-    "ts": "2026-05-17T22:53:25.941279+00:00",
-    "price": "~$3250-3280",
-    "last_tier": "NONE"
+    "ts": "2026-05-17T23:56:21.926163+00:00",
+    "price": "~2425\u20132445 (estimated; Bloomberg noted gold held decline into weekend but inflation fears persist)",
+    "last_tier": "FLIP"
   },
   "US30": {
     "bias": "SELL",
-    "confidence": 6,
-    "ts": "2026-05-17T22:53:50.818519+00:00",
+    "confidence": 5,
+    "ts": "2026-05-17T23:56:48.719798+00:00",
     "price": "49,526.17",
-    "last_tier": "FLIP"
+    "last_tier": "NONE"
   },
   "NAS100": {
     "bias": "NEUTRAL",
     "confidence": 4,
-    "ts": "2026-05-17T22:54:16.903258+00:00",
-    "price": "29125.20",
+    "ts": "2026-05-17T23:57:12.434736+00:00",
+    "price": "29,125.20",
     "last_tier": "NONE"
   }
 }
