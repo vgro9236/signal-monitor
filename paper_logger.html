@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Paper Trade Logger</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #131820;
+    --panel-light: #1a212c;
+    --border: #232b38;
+    --text: #d4d4d4;
+    --muted: #6b7484;
+    --green: #4ade80;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --blue: #60a5fa;
+    --gold: #f5d76e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 12px;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+  }
+  header h1 { font-size: 14px; color: var(--gold); letter-spacing: 1px; font-weight: 600; }
+  header .meta { font-size: 11px; color: var(--muted); }
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 16px;
+    background: var(--panel); padding: 4px; border-radius: 6px; border: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1; text-align: center; padding: 10px 8px; font-size: 12px;
+    background: transparent; color: var(--muted); border: none; cursor: pointer;
+    font-family: inherit; border-radius: 4px; font-weight: 600; letter-spacing: 0.5px;
+  }
+  .tab.active { background: var(--panel-light); color: var(--text); }
+  .tab .badge {
+    display: inline-block; background: var(--red); color: white;
+    border-radius: 8px; padding: 1px 6px; font-size: 10px; margin-left: 4px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 1.5px; margin-bottom: 10px; font-weight: 600; }
+  .empty { color: var(--muted); font-style: italic; padding: 20px 0; text-align: center; font-size: 12px; }
+  .alert-card { background: var(--panel-light); border-left: 3px solid var(--amber); padding: 12px; margin-bottom: 10px; border-radius: 4px; }
+  .alert-card.tier-HIGH { border-left-color: var(--gold); }
+  .alert-card.tier-FLIP { border-left-color: var(--blue); }
+  .alert-card.tier-MODERATE { border-left-color: var(--amber); }
+  .alert-head { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: baseline; }
+  .alert-symbol { font-size: 14px; font-weight: 700; }
+  .alert-bias { font-size: 11px; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.5px; }
+  .bias-BUY { background: rgba(74,222,128,0.15); color: var(--green); }
+  .bias-SELL { background: rgba(248,113,113,0.15); color: var(--red); }
+  .bias-NEUTRAL { background: rgba(251,191,36,0.15); color: var(--amber); }
+  .alert-tier { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .alert-meta { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .alert-narrative { font-size: 12px; color: var(--text); margin: 8px 0; line-height: 1.5; opacity: 0.85; }
+  .alert-levels { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin: 10px 0; }
+  .level-box {
+    background: var(--bg); padding: 6px; border-radius: 3px; border: 1px solid var(--border);
+    text-align: center;
+  }
+  .level-box .label { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 2px; }
+  .level-box .value { font-size: 11px; font-weight: 600; color: var(--text); }
+  .alert-actions { display: flex; gap: 6px; margin-top: 10px; }
+  button.primary, button.secondary, button.danger {
+    flex: 1; padding: 10px 8px; border: none; border-radius: 4px; cursor: pointer;
+    font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+  }
+  button.primary { background: var(--green); color: #0a0e14; }
+  button.secondary { background: var(--panel-light); color: var(--muted); border: 1px solid var(--border); }
+  button.danger { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+  .trade-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: center; }
+  .trade-row:last-child { border-bottom: none; }
+  .trade-row .meta-line { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .pnl-positive { color: var(--green); font-weight: 600; }
+  .pnl-negative { color: var(--red); font-weight: 600; }
+  .pnl-neutral { color: var(--muted); }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--panel-light); padding: 10px; border-radius: 4px; border: 1px solid var(--border); }
+  .stat .label { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 4px; }
+  .stat .value { font-size: 18px; font-weight: 700; }
+  .stat-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; }
+  .stat-row .label { color: var(--muted); }
+  .config-input { width: 100%; padding: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px; font-family: inherit; font-size: 13px; }
+  .refresh-btn { background: var(--panel-light); border: 1px solid var(--border); color: var(--muted); padding: 6px 10px; font-size: 11px; border-radius: 4px; font-family: inherit; cursor: pointer; }
+  .refresh-btn:active { background: var(--border); }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--panel-light); border: 1px solid var(--border);
+    padding: 10px 16px; border-radius: 6px; font-size: 12px; z-index: 1000;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .toast.show { opacity: 1; }
+  details summary { cursor: pointer; color: var(--muted); padding: 6px 0; font-size: 11px; }
+  details[open] summary { color: var(--text); }
+  .small { font-size: 10px; color: var(--muted); }
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>◆ PAPER TRADE LOGGER</h1>
+  <span class="meta" id="last-update">—</span>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="pending">PENDING<span class="badge" id="pending-count" style="display:none">0</span></button>
+  <button class="tab" data-tab="open">OPEN<span class="badge" id="open-count" style="display:none">0</span></button>
+  <button class="tab" data-tab="history">HISTORY</button>
+  <button class="tab" data-tab="stats">STATS</button>
+  <button class="tab" data-tab="config">CFG</button>
+</div>
+
+<div id="content"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────
+// CONFIG (loaded from localStorage, set in CFG tab on first run)
+// ─────────────────────────────────────────────────────────────────────
+const STORAGE_KEYS = {
+  trades:     'ptl_trades',
+  skipped:    'ptl_skipped',
+  config:     'ptl_config',
+  lastUpdate: 'ptl_last_update',
+};
+
+const DEFAULT_CONFIG = {
+  githubUser: '',
+  githubRepo: 'signal-monitor',
+  branch:     'main',
+  symbols:    ['XAUUSD', 'NAS100', 'US30'],
+  accountSize:  243,    // GBP
+  riskPerTrade: 1.5,    // percent
+};
+
+function getConfig() {
+  const stored = localStorage.getItem(STORAGE_KEYS.config);
+  return stored ? { ...DEFAULT_CONFIG, ...JSON.parse(stored) } : { ...DEFAULT_CONFIG };
+}
+function saveConfig(cfg) { localStorage.setItem(STORAGE_KEYS.config, JSON.stringify(cfg)); }
+
+function getTrades() {
+  const stored = localStorage.getItem(STORAGE_KEYS.trades);
+  return stored ? JSON.parse(stored) : [];
+}
+function saveTrades(trades) { localStorage.setItem(STORAGE_KEYS.trades, JSON.stringify(trades)); }
+
+function getSkipped() {
+  const stored = localStorage.getItem(STORAGE_KEYS.skipped);
+  return stored ? JSON.parse(stored) : [];
+}
+function saveSkipped(s) { localStorage.setItem(STORAGE_KEYS.skipped, JSON.stringify(s)); }
+
+// ─────────────────────────────────────────────────────────────────────
+// FETCHING ALERTS FROM GITHUB
+// ─────────────────────────────────────────────────────────────────────
+async function fetchTodaysAlerts() {
+  const cfg = getConfig();
+  if (!cfg.githubUser) return [];
+
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const allAlerts = [];
+
+  for (const symbol of cfg.symbols) {
+    for (const date of [today, yesterday]) {
+      const url = `https://raw.githubusercontent.com/${cfg.githubUser}/${cfg.githubRepo}/${cfg.branch}/signal_logs/${symbol}_${date}.jsonl`;
+      try {
+        const r = await fetch(url, { cache: 'no-cache' });
+        if (!r.ok) continue;
+        const text = await r.text();
+        const lines = text.trim().split('\n');
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line);
+            // Only show actionable tiers
+            if (!['HIGH', 'FLIP', 'MODERATE'].includes(entry.tier)) continue;
+            entry._symbol = symbol;
+            entry._id = `${symbol}_${entry.timestamp}`;
+            allAlerts.push(entry);
+          } catch (e) {}
+        }
+      } catch (e) {
+        // Ignore missing files
+      }
+    }
+  }
+
+  // Sort newest first
+  allAlerts.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  return allAlerts;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// LIVE PRICE FETCH
+// ─────────────────────────────────────────────────────────────────────
+const YAHOO_SYMBOLS = {
+  XAUUSD: 'GC=F',
+  BTCUSD: 'BTC-USD',
+  SPY:    'SPY',
+  US30:   '^DJI',
+  NAS100: '^NDX',
+};
+
+const priceCache = {};
+
+async function fetchLivePrice(symbol) {
+  if (priceCache[symbol] && (Date.now() - priceCache[symbol].ts < 60000)) {
+    return priceCache[symbol].price;
+  }
+  const yfSym = YAHOO_SYMBOLS[symbol];
+  if (!yfSym) return null;
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yfSym}?range=1d&interval=5m`;
+    const r = await fetch(url);
+    const data = await r.json();
+    const closes = data.chart.result[0].indicators.quote[0].close.filter(c => c !== null);
+    const price = closes[closes.length - 1];
+    priceCache[symbol] = { price, ts: Date.now() };
+    return price;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// TRADE SETUP EXTRACTION
+// ─────────────────────────────────────────────────────────────────────
+function parseLevel(text) {
+  if (!text) return null;
+  const cleaned = String(text).replace(/[$,\s]/g, '');
+  const range = cleaned.match(/(\d+\.?\d*)[-–](\d+\.?\d*)/);
+  if (range) return { low: parseFloat(range[1]), high: parseFloat(range[2]) };
+  const single = cleaned.match(/(\d+\.?\d*)/);
+  if (single) return { low: parseFloat(single[1]), high: parseFloat(single[1]) };
+  return null;
+}
+
+function extractSetup(entry) {
+  const primary = entry.confirmation || entry.screening;
+  if (!primary) return null;
+  const bias = primary.overall_bias;
+  if (!['BUY','SELL'].includes(bias)) return null;
+  const levels = primary.key_levels || {};
+  const support = parseLevel(levels.support);
+  const resistance = parseLevel(levels.resistance);
+  const current = parseLevel(primary.current_price);
+  if (!support || !resistance) return null;
+
+  let entry_price, stop, tp1, tp2;
+  if (bias === 'BUY') {
+    entry_price = (support.low + support.high) / 2;
+    stop = support.low * 0.998;
+    tp1 = (resistance.low + resistance.high) / 2;
+    tp2 = tp1 + (tp1 - entry_price) * 0.6;
+  } else {
+    entry_price = (resistance.low + resistance.high) / 2;
+    stop = resistance.high * 1.002;
+    tp1 = (support.low + support.high) / 2;
+    tp2 = tp1 - (entry_price - tp1) * 0.6;
+  }
+  return { bias, entry: entry_price, stop, tp1, tp2 };
+}
+
+function formatPrice(p, symbol) {
+  if (!p) return '—';
+  if (['BTCUSD'].includes(symbol)) return p.toFixed(0);
+  if (['XAUUSD'].includes(symbol)) return p.toFixed(2);
+  return p.toFixed(1);
+}
+
+function suggestPositionSize(symbol, entry, stop, accountSize, riskPct) {
+  // Approximate £-per-point at 0.01 lots
+  const pointValueAt001 = {
+    XAUUSD: 0.008,   // ~$0.01 / £0.008 per cent
+    NAS100: 0.008,
+    US30:   0.008,
+    BTCUSD: 0.008,
+    SPY:    0.008,
+  };
+  const pointVal = pointValueAt001[symbol] || 0.01;
+  const distance = Math.abs(entry - stop);
+  const maxRisk = (accountSize * riskPct) / 100;
+  const lotsAt001 = maxRisk / (distance * pointVal);
+  // Round to nearest 0.01
+  const lots = Math.max(0.01, Math.round(lotsAt001 * 100) / 100);
+  // Broker minimums by symbol
+  const minLots = { XAUUSD: 0.01, NAS100: 0.10, US30: 0.10, BTCUSD: 0.01, SPY: 0.01 };
+  const broker_min = minLots[symbol] || 0.01;
+  if (lots < broker_min) return { lots: null, msg: `TOO SMALL — min ${broker_min} lots = ${(distance * pointVal * broker_min / 0.01).toFixed(2)}£ risk (${((distance * pointVal * broker_min / 0.01) / accountSize * 100).toFixed(1)}%)` };
+  return { lots, msg: `${lots} lots ≈ £${maxRisk.toFixed(2)} risk (${riskPct}%)` };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// UI RENDERING
+// ─────────────────────────────────────────────────────────────────────
+let currentTab = 'pending';
+let allAlerts = [];
+
+async function refreshData() {
+  document.getElementById('last-update').textContent = 'fetching…';
+  allAlerts = await fetchTodaysAlerts();
+  await updateOpenTrades();
+  document.getElementById('last-update').textContent = new Date().toLocaleTimeString('en-GB');
+  localStorage.setItem(STORAGE_KEYS.lastUpdate, Date.now());
+  renderCurrentTab();
+  updateBadges();
+}
+
+async function updateOpenTrades() {
+  const trades = getTrades();
+  for (const t of trades) {
+    if (t.status !== 'OPEN') continue;
+    const livePrice = await fetchLivePrice(t.symbol);
+    if (!livePrice) continue;
+    t.live_price = livePrice;
+    // Check stop / TP hits
+    if (t.bias === 'BUY') {
+      if (livePrice <= t.stop) { t.status='CLOSED'; t.outcome='STOP_HIT'; t.exit_price=t.stop; t.exit_time=new Date().toISOString(); }
+      else if (livePrice >= t.tp2) { t.status='CLOSED'; t.outcome='TP2_HIT'; t.exit_price=t.tp2; t.exit_time=new Date().toISOString(); }
+      else if (livePrice >= t.tp1 && !t.tp1_hit) { t.tp1_hit = true; }
+    } else {
+      if (livePrice >= t.stop) { t.status='CLOSED'; t.outcome='STOP_HIT'; t.exit_price=t.stop; t.exit_time=new Date().toISOString(); }
+      else if (livePrice <= t.tp2) { t.status='CLOSED'; t.outcome='TP2_HIT'; t.exit_price=t.tp2; t.exit_time=new Date().toISOString(); }
+      else if (livePrice <= t.tp1 && !t.tp1_hit) { t.tp1_hit = true; }
+    }
+  }
+  saveTrades(trades);
+}
+
+function updateBadges() {
+  const skipped = new Set(getSkipped());
+  const takenIds = new Set(getTrades().map(t => t.alert_id));
+  const pending = allAlerts.filter(a => !skipped.has(a._id) && !takenIds.has(a._id));
+  const open = getTrades().filter(t => t.status === 'OPEN');
+  const pc = document.getElementById('pending-count');
+  const oc = document.getElementById('open-count');
+  pc.style.display = pending.length ? 'inline-block' : 'none';
+  pc.textContent = pending.length;
+  oc.style.display = open.length ? 'inline-block' : 'none';
+  oc.textContent = open.length;
+}
+
+function renderCurrentTab() {
+  const c = document.getElementById('content');
+  if (currentTab === 'pending') return renderPending(c);
+  if (currentTab === 'open')    return renderOpen(c);
+  if (currentTab === 'history') return renderHistory(c);
+  if (currentTab === 'stats')   return renderStats(c);
+  if (currentTab === 'config')  return renderConfig(c);
+}
+
+function renderPending(container) {
+  const cfg = getConfig();
+  const skipped = new Set(getSkipped());
+  const takenIds = new Set(getTrades().map(t => t.alert_id));
+  const pending = allAlerts.filter(a => !skipped.has(a._id) && !takenIds.has(a._id));
+
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px;align-items:center">
+      <span class="small">${pending.length} alert${pending.length === 1 ? '' : 's'} awaiting decision</span>
+      <button class="refresh-btn" onclick="refreshData()">↻ refresh</button>
+    </div>
+  `;
+  if (!cfg.githubUser) {
+    container.innerHTML += `<div class="panel"><div class="empty">Set your GitHub username in the CFG tab to load alerts.</div></div>`;
+    return;
+  }
+  if (!pending.length) {
+    container.innerHTML += `<div class="panel"><div class="empty">No pending alerts. Bot will fire fresh ones on the hour.</div></div>`;
+    return;
+  }
+
+  for (const alert of pending) {
+    const setup = extractSetup(alert);
+    if (!setup) continue;
+    const primary = alert.confirmation || alert.screening;
+    const tier = alert.tier;
+    const conf = primary.confidence;
+    const phase = primary.phase || 'UNKNOWN';
+    const mat = alert.maturity || {};
+
+    const sizing = suggestPositionSize(alert._symbol, setup.entry, setup.stop, cfg.accountSize, cfg.riskPerTrade);
+    const distance = Math.abs(setup.entry - setup.stop);
+    const reward1 = Math.abs(setup.tp1 - setup.entry);
+    const rr1 = (reward1 / distance).toFixed(2);
+
+    container.innerHTML += `
+      <div class="alert-card tier-${tier}">
+        <div class="alert-head">
+          <div>
+            <span class="alert-symbol">${alert._symbol}</span>
+            <span class="alert-bias bias-${setup.bias}">${setup.bias}</span>
+          </div>
+          <div class="alert-tier">${tier} · ${conf}/10</div>
+        </div>
+        <div class="alert-meta">
+          ${phase.replace('PHASE_','Ph')} · Maturity ${mat.count || 0}/${mat.total || 3} · ${new Date(alert.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+        </div>
+        <div class="alert-narrative">${(primary.narrative || '').substring(0, 200)}${(primary.narrative || '').length > 200 ? '…' : ''}</div>
+        <div class="alert-levels">
+          <div class="level-box">
+            <div class="label">ENTRY</div>
+            <div class="value">${formatPrice(setup.entry, alert._symbol)}</div>
+          </div>
+          <div class="level-box">
+            <div class="label">STOP</div>
+            <div class="value" style="color:var(--red)">${formatPrice(setup.stop, alert._symbol)}</div>
+          </div>
+          <div class="level-box">
+            <div class="label">TP1 (${rr1}R)</div>
+            <div class="value" style="color:var(--green)">${formatPrice(setup.tp1, alert._symbol)}</div>
+          </div>
+          <div class="level-box">
+            <div class="label">TP2</div>
+            <div class="value" style="color:var(--green)">${formatPrice(setup.tp2, alert._symbol)}</div>
+          </div>
+        </div>
+        <div class="small" style="margin:6px 0">📐 ${sizing.msg}</div>
+        ${primary.entry_guidance ? `<div class="small" style="margin:6px 0;color:var(--gold);font-style:italic">📌 ${primary.entry_guidance.substring(0, 150)}${primary.entry_guidance.length > 150 ? '…' : ''}</div>` : ''}
+        <div class="alert-actions">
+          <button class="primary" onclick="takeTrade('${alert._id}')">TAKE</button>
+          <button class="secondary" onclick="skipTrade('${alert._id}')">SKIP</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function renderOpen(container) {
+  const trades = getTrades().filter(t => t.status === 'OPEN');
+  container.innerHTML = `<div class="panel-title">OPEN POSITIONS · ${trades.length}</div>`;
+  if (!trades.length) {
+    container.innerHTML += `<div class="panel"><div class="empty">No open paper trades.</div></div>`;
+    return;
+  }
+  container.innerHTML += `<div class="panel">`;
+  for (const t of trades) {
+    const live = t.live_price || t.entry;
+    const distance = Math.abs(t.entry - t.stop);
+    const r = t.bias === 'BUY' ? (live - t.entry) / distance : (t.entry - live) / distance;
+    const pnlClass = r > 0.1 ? 'pnl-positive' : r < -0.1 ? 'pnl-negative' : 'pnl-neutral';
+    const tp1HitTag = t.tp1_hit ? ' ✓TP1' : '';
+    container.innerHTML += `
+      <div class="trade-row">
+        <div>
+          <strong>${t.symbol}</strong> <span class="alert-bias bias-${t.bias}" style="font-size:9px">${t.bias}</span>${tp1HitTag}
+          <div class="meta-line">@ ${formatPrice(t.entry, t.symbol)}</div>
+        </div>
+        <div style="text-align:center">
+          <div class="${pnlClass}">${r >= 0 ? '+' : ''}${r.toFixed(2)}R</div>
+          <div class="meta-line">live ${formatPrice(live, t.symbol)}</div>
+        </div>
+        <div style="text-align:right">
+          <button class="danger" onclick="closeManual('${t.id}')">CLOSE</button>
+        </div>
+      </div>
+    `;
+  }
+  container.innerHTML += `</div>`;
+}
+
+function renderHistory(container) {
+  const trades = getTrades().filter(t => t.status === 'CLOSED').slice().reverse();
+  container.innerHTML = `<div class="panel-title">CLOSED TRADES · ${trades.length}</div>`;
+  if (!trades.length) {
+    container.innerHTML += `<div class="panel"><div class="empty">No closed trades yet.</div></div>`;
+    return;
+  }
+  container.innerHTML += `<div class="panel">`;
+  for (const t of trades) {
+    const distance = Math.abs(t.entry - t.stop);
+    const r = t.bias === 'BUY' ? (t.exit_price - t.entry) / distance : (t.entry - t.exit_price) / distance;
+    const pnlClass = r > 0 ? 'pnl-positive' : 'pnl-negative';
+    const outcomeTag = t.outcome === 'TP2_HIT' ? '🎯 TP2' : t.outcome === 'TP1_HIT' ? '✓ TP1' : t.outcome === 'STOP_HIT' ? '✗ STOP' : t.outcome === 'MANUAL' ? '⊗ MANUAL' : t.outcome;
+    container.innerHTML += `
+      <div class="trade-row">
+        <div>
+          <strong>${t.symbol}</strong> <span class="alert-bias bias-${t.bias}" style="font-size:9px">${t.bias}</span>
+          <div class="meta-line">${new Date(t.exit_time).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <div style="text-align:center">
+          <div class="${pnlClass}">${r >= 0 ? '+' : ''}${r.toFixed(2)}R</div>
+          <div class="meta-line">${outcomeTag}</div>
+        </div>
+        <div style="text-align:right" class="small">
+          ${formatPrice(t.entry, t.symbol)}<br>→ ${formatPrice(t.exit_price, t.symbol)}
+        </div>
+      </div>
+    `;
+  }
+  container.innerHTML += `</div>`;
+}
+
+function renderStats(container) {
+  const trades = getTrades();
+  const closed = trades.filter(t => t.status === 'CLOSED');
+
+  if (!closed.length) {
+    container.innerHTML = `<div class="panel"><div class="empty">No closed trades yet — stats appear after first trade.</div></div>`;
+    return;
+  }
+
+  const rValues = closed.map(t => {
+    const dist = Math.abs(t.entry - t.stop);
+    return t.bias === 'BUY' ? (t.exit_price - t.entry) / dist : (t.entry - t.exit_price) / dist;
+  });
+  const wins = rValues.filter(r => r > 0);
+  const losses = rValues.filter(r => r <= 0);
+  const totalR = rValues.reduce((a,b) => a+b, 0);
+  const winRate = (wins.length / closed.length) * 100;
+  const avgWin = wins.length ? wins.reduce((a,b) => a+b, 0) / wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((a,b) => a+b, 0) / losses.length : 0;
+
+  // Max drawdown
+  let cumR = 0, peak = 0, maxDD = 0;
+  for (const r of rValues) {
+    cumR += r;
+    peak = Math.max(peak, cumR);
+    maxDD = Math.max(maxDD, peak - cumR);
+  }
+
+  // Per-symbol
+  const bySymbol = {};
+  for (let i = 0; i < closed.length; i++) {
+    const t = closed[i];
+    if (!bySymbol[t.symbol]) bySymbol[t.symbol] = { trades: 0, wins: 0, totalR: 0 };
+    bySymbol[t.symbol].trades++;
+    if (rValues[i] > 0) bySymbol[t.symbol].wins++;
+    bySymbol[t.symbol].totalR += rValues[i];
+  }
+
+  container.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="label">CLOSED TRADES</div>
+        <div class="value">${closed.length}</div>
+      </div>
+      <div class="stat">
+        <div class="label">WIN RATE</div>
+        <div class="value ${winRate >= 50 ? 'pnl-positive' : 'pnl-negative'}">${winRate.toFixed(0)}%</div>
+      </div>
+      <div class="stat">
+        <div class="label">TOTAL R</div>
+        <div class="value ${totalR >= 0 ? 'pnl-positive' : 'pnl-negative'}">${totalR >= 0 ? '+' : ''}${totalR.toFixed(2)}R</div>
+      </div>
+      <div class="stat">
+        <div class="label">MAX DD</div>
+        <div class="value pnl-negative">-${maxDD.toFixed(2)}R</div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <div class="panel-title">EXPECTANCY</div>
+      <div class="stat-row"><span class="label">Avg win</span><span class="pnl-positive">+${avgWin.toFixed(2)}R</span></div>
+      <div class="stat-row"><span class="label">Avg loss</span><span class="pnl-negative">${avgLoss.toFixed(2)}R</span></div>
+      <div class="stat-row"><span class="label">Avg per trade</span><span class="${totalR/closed.length >= 0 ? 'pnl-positive' : 'pnl-negative'}">${totalR/closed.length >= 0 ? '+' : ''}${(totalR/closed.length).toFixed(2)}R</span></div>
+      <div class="stat-row"><span class="label">Profit factor</span><span>${avgLoss !== 0 ? (Math.abs(avgWin * wins.length) / Math.abs(avgLoss * losses.length)).toFixed(2) : '∞'}</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">BY SYMBOL</div>
+      ${Object.entries(bySymbol).map(([sym, s]) => `
+        <div class="stat-row">
+          <span class="label">${sym}</span>
+          <span>${s.trades}T · ${(s.wins/s.trades*100).toFixed(0)}% · <span class="${s.totalR >= 0 ? 'pnl-positive' : 'pnl-negative'}">${s.totalR >= 0 ? '+' : ''}${s.totalR.toFixed(2)}R</span></span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="panel">
+      <div class="panel-title">CALIBRATION</div>
+      <div class="small">
+        ${closed.length < 10 ? '⏳ Need 10+ trades for early read. Currently ' + closed.length + '.' : ''}
+        ${closed.length >= 10 && closed.length < 30 ? '📊 Sample building. Patterns emerging at 30 trades.' : ''}
+        ${closed.length >= 30 ? (totalR > 0 ? '✓ Positive expectancy over 30+ trades. Edge is real.' : '✗ Negative expectancy over 30+ trades. Review which setups are leaking.') : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderConfig(container) {
+  const cfg = getConfig();
+  container.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">GITHUB CONNECTION</div>
+      <div class="small" style="margin-bottom:8px">Where the bot's signal_logs/ live</div>
+      <label class="small">GitHub Username</label>
+      <input class="config-input" id="cfg-user" value="${cfg.githubUser}" placeholder="e.g. veer13">
+      <div style="height:8px"></div>
+      <label class="small">Repo Name</label>
+      <input class="config-input" id="cfg-repo" value="${cfg.githubRepo}">
+      <div style="height:8px"></div>
+      <label class="small">Branch</label>
+      <input class="config-input" id="cfg-branch" value="${cfg.branch}">
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">RISK MANAGEMENT</div>
+      <label class="small">Account Size (£)</label>
+      <input class="config-input" id="cfg-acct" type="number" value="${cfg.accountSize}">
+      <div style="height:8px"></div>
+      <label class="small">Risk per trade (%)</label>
+      <input class="config-input" id="cfg-risk" type="number" step="0.1" value="${cfg.riskPerTrade}">
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">SYMBOLS</div>
+      <input class="config-input" id="cfg-symbols" value="${cfg.symbols.join(',')}">
+      <div class="small" style="margin-top:4px">Comma-separated. Must match bot's SYMBOLS env var.</div>
+    </div>
+
+    <button class="primary" style="width:100%;padding:14px" onclick="saveConfigForm()">SAVE & RELOAD</button>
+
+    <div class="panel" style="margin-top:16px">
+      <div class="panel-title">DATA</div>
+      <details>
+        <summary>Reset / Export</summary>
+        <div style="padding:10px 0">
+          <button class="secondary" onclick="exportData()">Export JSON</button>
+          <div style="height:8px"></div>
+          <button class="danger" onclick="resetAll()">Reset All Data</button>
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ACTIONS
+// ─────────────────────────────────────────────────────────────────────
+function takeTrade(alertId) {
+  const alert = allAlerts.find(a => a._id === alertId);
+  if (!alert) return;
+  const setup = extractSetup(alert);
+  if (!setup) return;
+  const trades = getTrades();
+  trades.push({
+    id: 'trade_' + Date.now(),
+    alert_id: alertId,
+    symbol: alert._symbol,
+    bias: setup.bias,
+    entry: setup.entry,
+    stop: setup.stop,
+    tp1: setup.tp1,
+    tp2: setup.tp2,
+    status: 'OPEN',
+    open_time: new Date().toISOString(),
+    tier: alert.tier,
+    confidence: (alert.confirmation || alert.screening).confidence,
+  });
+  saveTrades(trades);
+  showToast(`✓ Taken: ${alert._symbol} ${setup.bias}`);
+  refreshData();
+}
+
+function skipTrade(alertId) {
+  const skipped = getSkipped();
+  if (!skipped.includes(alertId)) skipped.push(alertId);
+  saveSkipped(skipped);
+  showToast('Skipped');
+  renderCurrentTab();
+  updateBadges();
+}
+
+function closeManual(tradeId) {
+  if (!confirm('Close this trade at current price?')) return;
+  const trades = getTrades();
+  const t = trades.find(x => x.id === tradeId);
+  if (!t) return;
+  t.status = 'CLOSED';
+  t.outcome = 'MANUAL';
+  t.exit_price = t.live_price || t.entry;
+  t.exit_time = new Date().toISOString();
+  saveTrades(trades);
+  showToast('Closed manually');
+  renderCurrentTab();
+  updateBadges();
+}
+
+function saveConfigForm() {
+  const cfg = {
+    githubUser:   document.getElementById('cfg-user').value.trim(),
+    githubRepo:   document.getElementById('cfg-repo').value.trim(),
+    branch:       document.getElementById('cfg-branch').value.trim(),
+    accountSize:  parseFloat(document.getElementById('cfg-acct').value),
+    riskPerTrade: parseFloat(document.getElementById('cfg-risk').value),
+    symbols:      document.getElementById('cfg-symbols').value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
+  };
+  saveConfig(cfg);
+  showToast('Config saved');
+  refreshData();
+}
+
+function exportData() {
+  const data = { config: getConfig(), trades: getTrades(), skipped: getSkipped() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `paper_trades_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function resetAll() {
+  if (!confirm('Delete ALL trades, skipped alerts, and reset config? Cannot be undone.')) return;
+  localStorage.removeItem(STORAGE_KEYS.trades);
+  localStorage.removeItem(STORAGE_KEYS.skipped);
+  localStorage.removeItem(STORAGE_KEYS.config);
+  location.reload();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTab = btn.dataset.tab;
+    renderCurrentTab();
+  });
+});
+
+// Auto-refresh every 2 minutes when on open/pending tab
+setInterval(() => {
+  if (['pending', 'open'].includes(currentTab)) refreshData();
+}, 120000);
+
+refreshData();
+</script>
+</body>
+</html>
