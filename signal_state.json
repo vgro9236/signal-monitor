@@ -2,22 +2,22 @@
   "XAUUSD": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-05-21T11:21:55.412317+00:00",
-    "price": "$4,518.00",
+    "ts": "2026-05-21T15:21:14.266755+00:00",
+    "price": "$4,505.30",
     "last_tier": "NONE"
   },
   "US30": {
     "bias": "NEUTRAL",
     "confidence": 4,
-    "ts": "2026-05-21T11:22:20.458481+00:00",
-    "price": "50009.35",
+    "ts": "2026-05-21T15:21:44.771476+00:00",
+    "price": "~40,500 (estimate; S&P 500 and Nasdaq slip reported, IBM surge caps losses in Dow)",
     "last_tier": "NONE"
   },
   "NAS100": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-05-21T11:22:44.592970+00:00",
-    "price": "29297.70",
-    "last_tier": "FLIP"
+    "ts": "2026-05-21T15:22:15.115984+00:00",
+    "price": "~19,800",
+    "last_tier": "NONE"
   }
 }
