@@ -9,15 +9,15 @@
   "US30": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-05-22T03:30:51.180657+00:00",
+    "ts": "2026-05-22T07:43:20.862996+00:00",
     "price": "50,285.66",
     "last_tier": "NONE"
   },
   "NAS100": {
-    "bias": "NEUTRAL",
-    "confidence": 5,
-    "ts": "2026-05-22T03:31:18.063806+00:00",
-    "price": "29,357.27",
-    "last_tier": "NONE"
+    "bias": "BUY",
+    "confidence": 6,
+    "ts": "2026-05-22T07:43:43.796000+00:00",
+    "price": "29357.27",
+    "last_tier": "FLIP"
   }
 }
