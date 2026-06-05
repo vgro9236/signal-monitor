@@ -1,23 +1,23 @@
 {
   "XAUUSD": {
     "bias": "NEUTRAL",
-    "confidence": 5,
-    "ts": "2026-06-05T05:15:28.834846+00:00",
-    "price": "~2410-2420 (estimated, falling on stalled Iran deal and geopolitical volatility)",
+    "confidence": 4,
+    "ts": "2026-06-05T09:43:45.146801+00:00",
+    "price": "$4,488.40",
     "last_tier": "NONE"
   },
   "US30": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-06-05T05:15:52.105911+00:00",
+    "ts": "2026-06-05T09:44:10.555755+00:00",
     "price": "51,561.93",
     "last_tier": "NONE"
   },
   "NAS100": {
     "bias": "SELL",
-    "confidence": 6,
-    "ts": "2026-06-05T05:16:19.434395+00:00",
+    "confidence": 5,
+    "ts": "2026-06-05T09:44:31.377500+00:00",
     "price": "30407.81",
-    "last_tier": "FLIP"
+    "last_tier": "NONE"
   }
 }
