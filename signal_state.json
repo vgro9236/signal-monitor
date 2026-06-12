@@ -2,22 +2,22 @@
   "XAUUSD": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-06-12T12:17:56.107472+00:00",
-    "price": "$4,228.50",
-    "last_tier": "FLIP"
+    "ts": "2026-06-12T16:16:02.994954+00:00",
+    "price": "$4,229.40",
+    "last_tier": "NONE"
   },
   "US30": {
     "bias": "BUY",
-    "confidence": 7,
-    "ts": "2026-06-12T12:19:03.762588+00:00",
-    "price": "50848.75",
-    "last_tier": "HIGH"
+    "confidence": 6,
+    "ts": "2026-06-12T16:16:29.570481+00:00",
+    "price": "~43,500 (estimated; intraday weakness but off lows after UMich data)",
+    "last_tier": "NONE"
   },
   "NAS100": {
-    "bias": "BUY",
-    "confidence": 6,
-    "ts": "2026-06-12T12:19:26.079905+00:00",
-    "price": "29,446",
+    "bias": "NEUTRAL",
+    "confidence": 5,
+    "ts": "2026-06-12T16:16:54.407574+00:00",
+    "price": "~19,500 (estimated, intraday volatility high)",
     "last_tier": "FLIP"
   }
 }
