@@ -2,22 +2,22 @@
   "XAUUSD": {
     "bias": "BUY",
     "confidence": 6,
-    "ts": "2026-06-15T06:21:49.795077+00:00",
-    "price": "~2425-2435 (inferred from 'gold gains momentum' and 'weekly high' post-Iran deal)",
-    "last_tier": "FLIP"
+    "ts": "2026-06-15T13:12:50.236097+00:00",
+    "price": "4366.30",
+    "last_tier": "NONE"
   },
   "US30": {
     "bias": "BUY",
-    "confidence": 6,
-    "ts": "2026-06-15T06:22:13.010055+00:00",
+    "confidence": 7,
+    "ts": "2026-06-15T13:14:00.819728+00:00",
     "price": "51202",
-    "last_tier": "NONE"
+    "last_tier": "HIGH"
   },
   "NAS100": {
     "bias": "BUY",
     "confidence": 6,
-    "ts": "2026-06-15T06:22:37.723635+00:00",
-    "price": "29,635.95",
+    "ts": "2026-06-15T13:15:10.332251+00:00",
+    "price": "29635.95",
     "last_tier": "NONE"
   }
 }
