@@ -1,23 +1,23 @@
 {
   "XAUUSD": {
     "bias": "SELL",
-    "confidence": 8,
-    "ts": "2026-06-24T16:20:51.234810+00:00",
-    "price": "4017.50",
-    "last_tier": "HIGH"
+    "confidence": 6,
+    "ts": "2026-06-24T18:50:53.914936+00:00",
+    "price": "$4,000.00",
+    "last_tier": "NONE"
   },
   "US30": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-06-24T16:21:19.303066+00:00",
-    "price": "~43,500 (inferred; headline mentions 'Dow up 500 points' post-tech selloff recovery)",
+    "ts": "2026-06-24T18:51:20.448220+00:00",
+    "price": "51,843.93",
     "last_tier": "NONE"
   },
   "NAS100": {
     "bias": "SELL",
     "confidence": 6,
-    "ts": "2026-06-24T16:21:46.426046+00:00",
-    "price": "~19,500\u201319,700 (estimated, tech selloff in progress)",
+    "ts": "2026-06-24T18:51:42.896155+00:00",
+    "price": "29,027.48",
     "last_tier": "NONE"
   }
 }
