@@ -2,22 +2,22 @@
   "XAUUSD": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-07-01T12:03:22.815127+00:00",
-    "price": "$4,047.30",
-    "last_tier": "FLIP"
+    "ts": "2026-07-01T15:40:21.182547+00:00",
+    "price": "4098.30",
+    "last_tier": "NONE"
   },
   "US30": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-07-01T12:03:55.968770+00:00",
-    "price": "52,319",
+    "ts": "2026-07-01T15:40:50.641490+00:00",
+    "price": "~40,650 (up +206pts or +0.40% session high recovery from -292pts lows)",
     "last_tier": "NONE"
   },
   "NAS100": {
     "bias": "NEUTRAL",
     "confidence": 5,
-    "ts": "2026-07-01T12:04:21.872816+00:00",
-    "price": "30,276.35",
+    "ts": "2026-07-01T15:41:15.318759+00:00",
+    "price": "~19,500\u201319,600 (estimated, session high recovery underway)",
     "last_tier": "NONE"
   }
 }
